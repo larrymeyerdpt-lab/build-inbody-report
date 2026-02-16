@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BUILD InBody Report Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #1B3A5C;
+  --blue: #2E6DA4;
+  --light: #E8F2FA;
+  --accent: #C8412B;
+  --gold: #D4982A;
+  --surface: #F5F6F8;
+  --text: #1A2332;
+  --sec: #5A6B7D;
+  --muted: #8E9BAD;
+  --border: #DDE3EB;
+  --white: #FFFFFF;
+  --green: #2D8A56;
+  --yellow: #C4960A;
+  --red: #C8412B;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, var(--navy), #2A4F75);
+  color: white;
+  padding: 16px 18px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(30,58,95,.3);
+}
+.header-inner { display:flex; justify-content:space-between; align-items:center; max-width:900px; margin:0 auto; }
+.header h1 { font-family:'DM Serif Display',serif; font-size:19px; font-weight:400; }
+.header .sub { font-size:10px; opacity:.7; margin-top:1px; letter-spacing:1px; text-transform:uppercase; }
+.header .badge { background:rgba(255,255,255,.15); padding:3px 10px; border-radius:16px; font-size:10px; letter-spacing:.5px; text-transform:uppercase; }
+
+/* Container */
+.container { max-width:900px; margin:0 auto; padding:16px 14px 100px; }
+
+/* Toggle */
+.toggle { display:flex; background:white; border-radius:10px; padding:3px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid var(--border); }
+.toggle button { flex:1; padding:9px 10px; border:none; border-radius:7px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+.toggle button.active { background:var(--navy); color:white; }
+.toggle button:not(.active) { background:transparent; color:var(--sec); }
+
+/* Scan Zone */
+.scan-zone {
+  background: white;
+  border-radius: 10px;
+  border: 2px dashed var(--blue);
+  padding: 24px 18px;
+  text-align: center;
+  margin-bottom: 16px;
+  transition: all .3s;
+}
+.scan-zone.scanning { border-color: var(--gold); }
+.scan-zone.success { border-style: solid; border-color: var(--green); }
+.scan-zone .icon { font-size:40px; margin-bottom:8px; }
+.scan-zone h3 { font-size:15px; font-weight:700; color:var(--navy); margin-bottom:3px; }
+.scan-zone p { font-size:12px; color:var(--sec); margin-bottom:14px; line-height:1.5; }
+.scan-zone img { max-width:240px; max-height:300px; border-radius:8px; margin:12px auto; display:block; box-shadow:0 4px 12px rgba(0,0,0,.08); }
+
+/* Buttons */
+.btn-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:10px 20px; border-radius:8px; border:none;
+  font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s;
+}
+.btn-primary { background:var(--accent); color:white; }
+.btn-primary:disabled { background:#ccc; cursor:not-allowed; }
+.btn-outline { border:1.5px solid var(--border); background:var(--surface); color:var(--text); }
+.btn-green { background:var(--green); color:white; }
+.btn-green:disabled { background:#ccc; cursor:not-allowed; }
+
+/* Status */
+.status { margin-top:10px; font-size:13px; font-weight:600; }
+.status.ok { color:var(--green); }
+.status.scanning { color:var(--gold); }
+.status.error { color:var(--red); }
+.error-detail { margin-top:6px; font-size:10px; color:var(--muted); word-break:break-all; max-height:60px; overflow:auto; background:var(--surface); padding:6px; border-radius:4px; }
+
+/* Progress bar */
+.progress { width:100%; height:5px; background:var(--border); border-radius:3px; margin-top:10px; overflow:hidden; }
+.progress-bar { height:100%; background:linear-gradient(90deg,var(--blue),var(--accent)); border-radius:3px; width:60%; animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Paste zone */
+.paste-zone { margin-top:12px; text-align:left; }
+.paste-zone label { font-size:11px; font-weight:600; color:var(--sec); display:block; margin-bottom:4px; }
+.paste-zone textarea {
+  width:100%; padding:8px; border:1.5px solid var(--border); border-radius:7px;
+  font-family:monospace; font-size:11px; background:var(--surface); resize:vertical; min-height:80px;
+}
+
+/* Section */
+.section { background:white; border-radius:10px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid var(--border); overflow:hidden; }
+.section-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:11px 14px; cursor:pointer; user-select:none;
+}
+.section-header .left { display:flex; align-items:center; gap:8px; }
+.section-header .icon-box { width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; }
+.section-header .title { font-size:13px; font-weight:700; color:var(--navy); }
+.section-header .chevron { color:var(--muted); font-size:14px; transition:transform .3s; }
+.section-header .chevron.open { transform:rotate(180deg); }
+.section-body { padding:0 14px 14px; }
+
+/* Form grid */
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.field label { font-size:10px; font-weight:600; color:var(--sec); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:3px; }
+.field input, .field select, .field textarea {
+  width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:7px;
+  font-family:inherit; font-size:14px; color:var(--text); background:var(--surface); outline:none; transition:all .2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color:var(--blue); background:white; }
+
+/* Segmental row */
+.seg-row { display:grid; grid-template-columns:90px 1fr 1fr; gap:8px; align-items:center; margin-bottom:6px; }
+.seg-row span { font-size:12px; font-weight:600; }
+.seg-row input { padding:7px 9px; border:1.5px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px; background:var(--surface); outline:none; width:100%; }
+
+/* Action bar */
+.action-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:white; padding:10px 14px;
+  display:flex; gap:8px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.1); z-index:100;
+}
+.action-bar button { flex:1; padding:12px; border-radius:10px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase; }
+.action-bar .clear-btn { flex:.5; border:1.5px solid var(--border); background:var(--surface); color:var(--text); }
+.action-bar .gen-btn { flex:1; border:none; background:var(--accent); color:white; }
+.action-bar .gen-btn:disabled { background:#ccc; cursor:not-allowed; }
+
+/* Toast */
+.toast {
+  position:fixed; top:70px; left:50%; transform:translateX(-50%);
+  background:var(--navy); color:white; padding:8px 20px; border-radius:10px;
+  font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.12);
+  z-index:1000; transition:opacity .3s; pointer-events:none;
+}
+.toast.hidden { opacity:0; }
+
+/* ===== REPORT STYLES ===== */
+.report { background:white; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.12); overflow:hidden; margin-bottom:16px; }
+.report-header {
+  background: linear-gradient(135deg, var(--navy), #2A4F75);
+  color:white; padding:20px;
+}
+.report-header h2 { font-family:'DM Serif Display',serif; font-size:20px; font-weight:400; }
+.report-header .sub { font-size:10px; opacity:.7; letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.report-header .meta {
+  display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;
+  background:rgba(255,255,255,.1); margin-top:12px; padding:9px 12px; border-radius:8px; font-size:11px;
+}
+.metrics { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; padding:16px 18px; }
+.metric { background:var(--surface); border-radius:8px; padding:10px; text-align:center; }
+.metric .val { font-size:18px; font-weight:700; color:var(--navy); }
+.metric .label { font-size:8px; color:var(--sec); text-transform:uppercase; letter-spacing:.5px; margin-top:1px; }
+.metric .badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:700; margin-top:4px; }
+
+.report-section { padding:16px 20px; border-bottom:1px solid var(--border); }
+.report-section h3 { font-family:'DM Serif Display',serif; font-size:15px; color:var(--navy); margin-bottom:8px; font-weight:400; }
+.report-section p { font-size:13px; line-height:1.7; margin-bottom:8px; }
+
+/* Segmental table */
+.seg-table { width:100%; border-collapse:collapse; margin:8px 0; }
+.seg-table th { background:var(--navy); color:white; padding:6px 8px; font-size:9px; text-transform:uppercase; letter-spacing:.5px; text-align:left; }
+.seg-table td { padding:7px 8px; font-size:12px; border-bottom:1px solid var(--border); }
+.seg-table tr:nth-child(even) td { background:var(--surface); }
+.seg-bar { width:100%; height:6px; background:#E0E0E0; border-radius:3px; overflow:hidden; }
+.seg-bar-fill { height:100%; border-radius:3px; }
+
+/* Bottom line */
+.bottom-line {
+  background: linear-gradient(135deg, #F8F4EC, #FBF8F2);
+  border: 1.5px solid #E8DFC8;
+  border-radius: 10px;
+  padding: 16px;
+}
+.bottom-line h4 { font-family:'DM Serif Display',serif; font-size:14px; color:var(--navy); margin-bottom:6px; font-weight:400; }
+
+.report-footer {
+  text-align:center; padding:14px 20px; background:var(--surface);
+  font-size:10px; color:var(--muted);
+}
+.report-footer strong { color:var(--navy); }
+
+.print-btn {
+  width:100%; padding:13px; border:none; border-radius:10px;
+  background:var(--accent); color:white; font-family:inherit;
+  font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:.5px;
+}
+
+/* Hidden inputs */
+.hidden { display:none; }
+
+/* Print styles */
+@media print {
+  .header, .toggle, .action-bar, .print-btn, .scan-zone { display:none !important; }
+  .container { padding:0; }
+  .report { box-shadow:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="toast hidden" id="toast"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <h1>BUILD InBody Report</h1>
+      <div class="sub">Sports Performance Lab &amp; Physical Therapy</div>
+    </div>
+    <span class="badge">Generator</span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Toggle -->
+  <div class="toggle">
+    <button id="tabInput" class="active" onclick="showTab('input')">Scan &amp; Input</button>
+    <button id="tabReport" onclick="showTab('report')">View Report</button>
+  </div>
+
+  <!-- ===== INPUT VIEW ===== -->
+  <div id="inputView">
+    <!-- Scan Zone -->
+    <div class="scan-zone" id="scanZone">
+      <div class="icon">&#128247;</div>
+      <h3>Scan InBody Printout</h3>
+      <p>Take a photo or upload an image/PDF of the InBody result sheet.<br>AI will extract all data automatically.</p>
+      <img id="preview" class="hidden" alt="Preview">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="cameraBtn" onclick="openCamera()">&#128247; Take Photo</button>
+        <button class="btn btn-outline" onclick="openFile()">&#128193; Upload File</button>
+        <button class="btn btn-outline" onclick="loadSample()">&#128202; Sample Data</button>
+      </div>
+      <div class="status hidden" id="statusMsg"></div>
+      <div class="error-detail hidden" id="errorDetail"></div>
+      <div class="progress hidden" id="progressBar"><div class="progress-bar"></div></div>
+      <div class="paste-zone hidden" id="pasteZone">
+        <label>Paste JSON from Claude (ask Sage to extract the data):</label>
+        <textarea id="pasteInput" placeholder="Paste JSON here..."></textarea>
+        <button class="btn btn-green" style="margin-top:6px" onclick="loadPastedJSON()">Load Data</button>
+      </div>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="cameraInput" class="hidden" accept="image/*" capture="environment">
+    <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf">
+
+    <!-- Athlete Information -->
+    <div class="section" id="sec-athlete">
+      <div class="section-header" onclick="toggleSection('sec-athlete')">
+        <div class="left">
+          <div class="icon-box" style="background:var(--light);color:var(--blue)">&#128100;</div>
+          <span class="title">Athlete Information</span>
+        </div>
+        <span class="chevron open" id="chev-sec-athlete">&#9660;</span>
+      </div>
+      <div class="section-body" id="body-sec-athlete">
+        <div class="grid2">
+          <div class="field"><label>Athlete Name</label><input id="f_name" placeholder="First Last"></div>
+          <div class="field"><label>Age</label><input id="f_age" type="number" placeholder="16"></div>
+          <div class="field"><label>Sex</label><select id="f_sex"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+          <div class="field"><label>Height</label><input id="f_height" placeholder="5'10&quot;"></div>
+          <div class="field"><label>Sport</label><input id="f_sport" placeholder="Soccer"></div>
+          <div class="field"><label>Test Date</label><input id="f_testDate" type="date"></div>
+          <div class="field"><label>Assessor</label><input id="f_assessor" value="Dr. Larry Meyer"></div>
+          <div class="field"><label>Population</label><select id="f_population"><option value="adolescent">Adolescent Athlete</option><option value="adult">Adult (18-44)</option><option value="masters">Masters (45+)</option><option value="longevity">Longevity Client (45+)</option></select></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body Composition -->
+    <div class="section" id="sec-comp">
+      <div class="section-header" onclick="toggleSection('sec-comp')">
+        <div class="left">
+          <div class="icon-box" style="background:#E6F5ED;color:var(--green)">&#9878;</div>
+          <span class="title">Body Composition</span>
+        </div>
+        <span class="chevron" id="chev-sec-comp">&#9660;</span>
+      </div>
+      <div class="section-body hidden" id="body-sec-comp">
+        <div class="grid2">
+          <div class="field"><label>Weight (lbs)</label><input id="f_weight" type="number" step="0.1" placeholder="172.3"></div>
+          <div class="field"><label>Skeletal Muscle Mass</label><input id="f_smm" type="number" step="0.1" placeholder="82.9"></div>
+          <div class="field"><label>Body Fat Mass (lbs)</label><input id="f_bfm" type="number" step="0.1" placeholder="14.1"></div>
+          <div class="field"><label>Body Fat %</label><input id="f_pbf" type="number" step="0.1" placeholder="8.9"></div>
+          <div class="field"><label>BMI</label><input id="f_bmi" type="number" step="0.1" placeholder="21.6"></div>
+          <div class="field"><label>Lean Body Mass</label><input id="f_lbm" type="number" step="0.1" placeholder="145.3"></div>
+          <div class="field"><label>Dry Lean Mass</label><input id="f_dlm" type="number" step="0.1" placeholder="37.4"></div>
+          <div class="field"><label>Visceral Fat Level</label><input id="f_visceral" type="number" placeholder="2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hydration -->
+    <div class="section" id="sec-hydra">
+      <div class="section-header" onclick="toggleSection('sec-hydra')">
+        <div class="left">
+          <div class="icon-box" style="background:#E3F2FD;color:#1976D2">&#128167;</div>
+          <span class="title">Hydration &amp; Cellular Health</span>
+        </div>
+        <span class="chevron" id="chev-sec-hydra">&#9660;</span>
+      </div>
+      <div class="section-body hidden" id="body-sec-hydra">
+        <div class="grid2">
+          <div class="field"><label>Total Body Water (lbs)</label><input id="f_tbw" type="number" step="0.1" placeholder="107.9"></div>
+          <div class="field"><label>ECW/TBW Ratio</label><input id="f_ecwtbw" type="number" step="0.001" placeholder="0.371"></div>
+          <div class="field"><label>Intracellular Water</label><input id="f_icw" type="number" step="0.1" placeholder="67.9"></div>
+          <div class="field"><label>Extracellular Water</label><input id="f_ecw" type="number" step="0.1" placeholder="40.0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metabolic -->
+    <div class="section" id="sec-meta">
+      <div class="section-header" onclick="toggleSection('sec-meta')">
+        <div class="left">
+          <div class="icon-box" style="background:#FFF3E0;color:#E65100">&#128293;</div>
+          <span class="title">Metabolic Data</span>
+        </div>
+        <span class="chevron" id="chev-sec-meta">&#9660;</span>
+      </div>
+      <div class="section-body hidden" id="body-sec-meta">
+        <div class="grid2">
+          <div class="field"><label>BMR (kcal)</label><input id="f_bmr" type="number" placeholder="1793"></div>
+          <div class="field"><label>Phase Angle</label><input id="f_phaseAngle" type="number" step="0.1" placeholder="6.8"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Segmental -->
+    <div class="section" id="sec-seg">
+      <div class="section-header" onclick="toggleSection('sec-seg')">
+        <div class="left">
+          <div class="icon-box" style="background:#F3E5F5;color:#7B1FA2">&#128170;</div>
+          <span class="title">Segmental Lean Analysis</span>
+        </div>
+        <span class="chevron" id="chev-sec-seg">&#9660;</span>
+      </div>
+      <div class="section-body hidden" id="body-sec-seg">
+        <div class="seg-row"><span>Right Arm</span><input id="f_seg_ra_wt" type="number" step="0.01" placeholder="lbs"><input id="f_seg_ra_pct" type="number" step="0.1" placeholder="%"></div>
+        <div class="seg-row"><span>Left Arm</span><input id="f_seg_la_wt" type="number" step="0.01" placeholder="lbs"><input id="f_seg_la_pct" type="number" step="0.1" placeholder="%"></div>
+        <div class="seg-row"><span>Trunk</span><input id="f_seg_tr_wt" type="number" step="0.01" placeholder="lbs"><input id="f_seg_tr_pct" type="number" step="0.1" placeholder="%"></div>
+        <div class="seg-row"><span>Right Leg</span><input id="f_seg_rl_wt" type="number" step="0.01" placeholder="lbs"><input id="f_seg_rl_pct" type="number" step="0.1" placeholder="%"></div>
+        <div class="seg-row"><span>Left Leg</span><input id="f_seg_ll_wt" type="number" step="0.01" placeholder="lbs"><input id="f_seg_ll_pct" type="number" step="0.1" placeholder="%"></div>
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="section" id="sec-rec">
+      <div class="section-header" onclick="toggleSection('sec-rec')">
+        <div class="left">
+          <div class="icon-box" style="background:#E8F5E9;color:var(--green)">&#128203;</div>
+          <span class="title">Recommendations &amp; Notes</span>
+        </div>
+        <span class="chevron" id="chev-sec-rec">&#9660;</span>
+      </div>
+      <div class="section-body hidden" id="body-sec-rec">
+        <div class="grid2">
+          <div class="field"><label>+/- Muscle (lbs)</label><input id="f_recMuscle" placeholder="+5.0"></div>
+          <div class="field"><label>+/- Fat (lbs)</label><input id="f_recFat" placeholder="+2.9"></div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Clinical Notes</label>
+          <textarea id="f_notes" placeholder="Observations, injury history..." style="min-height:60px;resize:vertical"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REPORT VIEW ===== -->
+  <div id="reportView" class="hidden"></div>
+</div>
+
+<!-- Action Bar -->
+<div class="action-bar" id="actionBar">
+  <button class="clear-btn" onclick="clearAll()">Clear</button>
+  <button class="gen-btn" id="genBtn" onclick="generateReport()">Generate Report</button>
+</div>
+
+<script>
+// ===== STATE =====
+const FIELDS = ['name','age','sex','height','sport','testDate','assessor','population','weight','smm','bfm','pbf','bmi','lbm','dlm','visceral','tbw','ecwtbw','icw','ecw','bmr','phaseAngle','seg_ra_wt','seg_ra_pct','seg_la_wt','seg_la_pct','seg_tr_wt','seg_tr_pct','seg_rl_wt','seg_rl_pct','seg_ll_wt','seg_ll_pct','recMuscle','recFat','notes'];
+let isScanning = false;
+
+// ===== HELPERS =====
+const n = v => parseFloat(v) || 0;
+const $ = id => document.getElementById(id);
+const getF = id => $('f_'+id)?.value || '';
+const setF = (id, v) => { const el=$('f_'+id); if(el) el.value = v; };
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2500);
+}
+
+function showTab(tab) {
+  const isInput = tab === 'input';
+  $('inputView').classList.toggle('hidden', !isInput);
+  $('reportView').classList.toggle('hidden', isInput);
+  $('tabInput').classList.toggle('active', isInput);
+  $('tabReport').classList.toggle('active', !isInput);
+  $('actionBar').style.display = isInput ? 'flex' : 'none';
+  if (!isInput && !n(getF('weight')) && !n(getF('smm'))) {
+    toast('Enter data or scan first');
+    showTab('input');
+    return;
+  }
+  if (!isInput) buildReport();
+}
+
+function toggleSection(id) {
+  const body = $('body-'+id);
+  const chev = $('chev-'+id);
+  body.classList.toggle('hidden');
+  chev.classList.toggle('open');
+}
+
+// ===== SCAN =====
+function openCamera() { $('cameraInput').value=''; $('cameraInput').click(); }
+function openFile() { $('fileInput').value=''; $('fileInput').click(); }
+
+$('cameraInput').addEventListener('change', e => handleFile(e.target.files[0]));
+$('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+
+function compressImage(dataUrl, maxW=1200) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function handleFile(file) {
+  if (!file || isScanning) return;
+  
+  setStatus('Reading file...', 'scanning');
+  hideError(); hidePaste(); showProgress();
+  
+  const reader = new FileReader();
+  reader.onload = async e => {
+    let dataUrl = e.target.result;
+    const isImage = file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.heic') || !file.type;
+    const isPdf = file.type === 'application/pdf';
+    
+    if (isImage) {
+      setStatus('Compressing image...', 'scanning');
+      dataUrl = await compressImage(dataUrl);
+      showPreview(dataUrl);
+    }
+    
+    const base64 = dataUrl.split(',')[1];
+    const sizeMB = (base64.length * 0.75 / 1024 / 1024).toFixed(1);
+    const mediaType = isPdf ? 'application/pdf' : 'image/jpeg';
+    
+    isScanning = true;
+    setStatus('Analyzing InBody printout (' + sizeMB + 'MB)...', 'scanning');
+    
+    try {
+      const resp = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mediaType })
+      });
+      
+      const result = await resp.json();
+      
+      if (!resp.ok || result.error) {
+        throw new Error(result.error || 'Server error ' + resp.status);
+      }
+      
+      if (!result.data) {
+        throw new Error('No data returned. Response: ' + JSON.stringify(result).substring(0, 200));
+      }
+      
+      populateFromJSON(result.data);
+      setStatus('Data extracted! Review below, then Generate Report.', 'ok');
+      $('scanZone').classList.add('success');
+      $('scanZone').classList.remove('scanning');
+      toast('InBody data extracted!');
+      
+    } catch (err) {
+      console.error('OCR error:', err);
+      setStatus('Scan failed: ' + err.message.substring(0, 100), 'error');
+      showError(err.message);
+      showPaste();
+    } finally {
+      isScanning = false;
+      hideProgress();
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function populateFromJSON(data) {
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined && v !== null && v !== 0 && v !== '') {
+      setF(k, String(v));
+    }
+  }
+  // Auto-set population from age
+  const age = n(getF('age'));
+  if (age > 0 && age < 18) setF('population', 'adolescent');
+  else if (age >= 45) setF('population', 'masters');
+  else if (age > 0) setF('population', 'adult');
+  if (!getF('assessor')) setF('assessor', 'Dr. Larry Meyer');
+}
+
+function loadPastedJSON() {
+  const txt = $('pasteInput').value.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+  try {
+    let parsed;
+    try { parsed = JSON.parse(txt); } catch {
+      const m = txt.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
+      else throw new Error('Invalid JSON');
+    }
+    populateFromJSON(parsed);
+    setStatus('Data loaded from pasted JSON!', 'ok');
+    $('scanZone').classList.add('success');
+    hidePaste();
+    toast('Data loaded!');
+  } catch (err) {
+    toast('Invalid JSON: ' + err.message);
+  }
+}
+
+function loadSample() {
+  populateFromJSON({
+    name:'',age:15,sex:'Male',height:"5'9\"",sport:'Soccer',testDate:'2026-01-05',
+    weight:125.1,smm:64.8,bfm:9.4,pbf:7.5,bmi:21.6,lbm:115.7,dlm:30.6,visceral:1,
+    tbw:85.1,ecwtbw:0.377,icw:52.9,ecw:32.2,bmr:1504,
+    seg_ra_wt:6.24,seg_ra_pct:104.9,seg_la_wt:6.06,seg_la_pct:101.8,
+    seg_tr_wt:51.2,seg_tr_pct:107.7,seg_rl_wt:19.27,seg_rl_pct:116.5,
+    seg_ll_wt:19.42,seg_ll_pct:117.4
+  });
+  toast('Sample data loaded');
+}
+
+// UI helpers
+function setStatus(msg, type) { const el=$('statusMsg'); el.textContent=msg; el.className='status '+type; el.classList.remove('hidden'); }
+function showPreview(src) { const el=$('preview'); el.src=src; el.classList.remove('hidden'); }
+function showProgress() { $('progressBar').classList.remove('hidden'); }
+function hideProgress() { $('progressBar').classList.add('hidden'); }
+function showError(msg) { const el=$('errorDetail'); el.textContent=msg; el.classList.remove('hidden'); }
+function hideError() { $('errorDetail').classList.add('hidden'); }
+function showPaste() { $('pasteZone').classList.remove('hidden'); }
+function hidePaste() { $('pasteZone').classList.add('hidden'); }
+
+function clearAll() {
+  FIELDS.forEach(f => setF(f, ''));
+  setF('assessor', 'Dr. Larry Meyer');
+  setF('population', 'adolescent');
+  setF('testDate', new Date().toISOString().split('T')[0]);
+  $('preview').classList.add('hidden');
+  $('statusMsg').classList.add('hidden');
+  hideError(); hidePaste(); hideProgress();
+  $('scanZone').classList.remove('success','scanning');
+  toast('Cleared');
+}
+
+function generateReport() {
+  if (isScanning) { toast('Still scanning...'); return; }
+  if (!n(getF('weight')) && !n(getF('smm'))) { toast('Enter data or scan first'); return; }
+  showTab('report');
+}
+
+// ===== ANALYSIS FUNCTIONS =====
+function bfCat(pbf, sex, pop) {
+  if (sex === 'Male') {
+    if (pop === 'adolescent') { if(pbf<8) return {l:'Very Lean',s:'yellow'}; if(pbf<=15) return {l:'Athletic',s:'green'}; if(pbf<=20) return {l:'Healthy',s:'green'}; return {l:'Above Range',s:'yellow'}; }
+    if(pbf<6) return {l:'Essential',s:'red'}; if(pbf<14) return {l:'Athletic',s:'green'}; if(pbf<18) return {l:'Fit',s:'green'}; if(pbf<25) return {l:'Average',s:'yellow'}; return {l:'Above Avg',s:'yellow'};
+  } else {
+    if (pop === 'adolescent') { if(pbf<14) return {l:'Very Lean',s:'yellow'}; if(pbf<=24) return {l:'Athletic',s:'green'}; if(pbf<=30) return {l:'Healthy',s:'green'}; return {l:'Above Range',s:'yellow'}; }
+    if(pbf<12) return {l:'Essential',s:'red'}; if(pbf<20) return {l:'Athletic',s:'green'}; if(pbf<25) return {l:'Fit',s:'green'}; if(pbf<32) return {l:'Average',s:'yellow'}; return {l:'Above Avg',s:'yellow'};
+  }
+}
+
+function segColor(pct) { return pct>=110?'var(--green)':pct>=95?'var(--blue)':pct>=85?'var(--yellow)':'var(--red)'; }
+function segRating(pct) { return pct>=100?'Above target':pct>=90?'On target':pct>=80?'Developing':'Below target'; }
+
+function nComp() {
+  const pbf=n(getF('pbf')), dlm=n(getF('dlm')), smm=n(getF('smm')), bfm=n(getF('bfm')), pop=getF('population'), sex=getF('sex');
+  let t = 'Think of your body like a building under construction. Dry Lean Mass ('+dlm+' lbs) is your steel and concrete: the structural framework of protein and minerals that holds everything together. Skeletal Muscle Mass ('+smm+' lbs) includes that framework plus the water inside your muscle cells where all the metabolic action happens. Think of it like the electrical and plumbing systems that make the building functional.';
+  t += '\n\nBody Fat Mass ('+bfm+' lbs) at '+pbf+'% is your energy reserve, like a building\'s backup generator. ';
+  if(pop==='adolescent'&&sex==='Male'&&pbf<10) t+='At this level, you\'re running very lean - actually below the typical athletic range of 10-15% for male adolescents. While this reflects your high training load, it\'s worth ensuring you\'re fueling adequately. During adolescence, some body fat supports hormone production, immune function, and the energy demands of growth. Think of it as keeping enough fuel in the generator for both daily operations and the construction crew still building the upper floors.';
+  else if(pop==='adolescent'&&sex==='Female'&&pbf<16) t+='At this level, you\'re running lean - below the recommended 16-24% range for adolescent females. Body fat plays a critical role in hormonal health, bone density, and immune function during development.';
+  else if(pbf<12&&sex==='Male') t+='At this level, you\'re running lean with minimal reserves. Adequate fueling is essential for recovery and long-term health.';
+  else if(pbf>=10&&pbf<=18) t+='At this level, you have a healthy reserve - enough fuel in the generator to handle both training demands and recovery.';
+  else if(pbf>18) t+='At this level, the generator has ample reserves. Shifting some fuel into structural investment (muscle) through resistance training and nutrition is the key opportunity.';
+  return t;
+}
+
+function nHydration() {
+  const ecw=n(getF('ecwtbw')), tbw=n(getF('tbw')), wt=n(getF('weight'));
+  const pct = wt>0 ? ((tbw/wt)*100).toFixed(0) : 0;
+  let t = 'Your ECW/TBW ratio of '+ecw.toFixed(3)+' tells us how your body\'s water is distributed. Think of it like a house\'s plumbing system. Intracellular water (inside cells) is water stored in tanks throughout the house, while extracellular water (outside cells) is water in the pipes, moving between destinations.';
+  t += '\n\nThe healthy range is 0.360-0.390. At '+ecw.toFixed(3)+', you have ';
+  if(ecw<=.38) t+='well-balanced fluid distribution: your cells are properly hydrated with no signs of inflammation, edema, or overtraining stress.';
+  else if(ecw<=.39) t+='normal fluid distribution within the healthy range.';
+  else t+='slightly elevated extracellular water, which may indicate inflammation, overtraining, or recovery needs.';
+  if(tbw>0) t+=' Total Body Water of '+tbw+' lbs ('+pct+'% of body weight) indicates '+(parseInt(pct)>=60?'excellent':'adequate')+' cellular hydration'+(parseInt(pct)>=60?' - your muscle cells are full tanks, ready to perform':'')+'.';
+  return t;
+}
+
+function nBMR() {
+  const bmr=n(getF('bmr')), age=n(getF('age')), pbf=n(getF('pbf')), pa=n(getF('phaseAngle')), pop=getF('population'), sex=getF('sex');
+  let t = 'Your BMR of '+bmr.toLocaleString()+' calories/day is like a car\'s fuel consumption while idling. This is what your body burns just to keep the lights on: breathing, circulating blood, growing cells, maintaining body temperature. This doesn\'t include any movement or activity.';
+  if(pop==='adolescent') {
+    t+='\n\nFor a '+age+'-year-old '+(sex||'').toLowerCase()+' at '+getF('height')+' and '+getF('weight')+' lbs, this is a solid foundation driven by your muscle mass (muscle is metabolically expensive tissue). With training and daily activity, your actual daily needs are likely 2,400-3,000+ calories depending on training intensity.';
+    if(pbf<10) t+=' Given your lean body composition, hitting the higher end of this range will help support both performance and continued growth.';
+  } else {
+    const cL=Math.round(bmr*1.5).toLocaleString(), cH=Math.round(bmr*1.85).toLocaleString();
+    t+='\n\nWith training and daily activity, actual daily caloric needs are approximately '+cL+'-'+cH+' calories depending on training volume.';
+  }
+  if(pa>0) { t+='\n\nPhase Angle of '+pa+' degrees '; if(pa>=7)t+='is excellent, indicating strong cellular integrity.';else if(pa>=6)t+='is good, reflecting healthy cellular membranes.';else if(pa>=5)t+='is adequate but has room for improvement.';else t+='is below optimal. Nutrition and recovery optimization recommended.'; }
+  return t;
+}
+
+function nSeg() {
+  const segs=[{name:'Right Arm',pct:n(getF('seg_ra_pct'))},{name:'Left Arm',pct:n(getF('seg_la_pct'))},{name:'Trunk',pct:n(getF('seg_tr_pct'))},{name:'Right Leg',pct:n(getF('seg_rl_pct'))},{name:'Left Leg',pct:n(getF('seg_ll_pct'))}].filter(s=>s.pct>0);
+  if(!segs.length) return '';
+  const allAbove=segs.every(s=>s.pct>=100);
+  const armA=Math.abs(n(getF('seg_ra_pct'))-n(getF('seg_la_pct')));
+  const legA=Math.abs(n(getF('seg_rl_pct'))-n(getF('seg_ll_pct')));
+  let t='';
+  if(allAbove){t+='Excellent development across all segments';if(n(getF('seg_rl_pct'))>110&&n(getF('seg_ll_pct'))>110){t+=', with particularly strong legs ('+Math.round(n(getF('seg_rl_pct')))+'-'+Math.round(n(getF('seg_ll_pct')))+'% of ideal)';if(getF('sport')&&getF('sport').toLowerCase().includes('soccer'))t+=', exactly what you\'d expect from a soccer athlete';}t+='. ';}
+  else t+='Segmental development shows areas of strength and opportunity. ';
+  if(armA>5)t+='The '+armA.toFixed(0)+'% arm asymmetry is worth monitoring. ';else if(armA>0)t+='The '+armA.toFixed(0)+'% difference between arms is within normal range. ';
+  if(legA>5)t+='A '+legA.toFixed(0)+'% leg asymmetry should be addressed. ';else if(legA>0)t+='Leg symmetry is excellent. ';
+  if(n(getF('seg_tr_pct'))>100)t+='Your trunk at '+getF('seg_tr_pct')+'% provides a solid foundation for power transfer between lower and upper body.';
+  return t;
+}
+
+function nBottom() {
+  const segs=[n(getF('seg_ra_pct')),n(getF('seg_la_pct')),n(getF('seg_tr_pct')),n(getF('seg_rl_pct')),n(getF('seg_ll_pct'))].filter(p=>p>0);
+  const allAbove=segs.length>0&&segs.every(p=>p>=100);
+  const pbf=n(getF('pbf')),ecw=n(getF('ecwtbw')),bmr=n(getF('bmr')),sex=getF('sex'),pop=getF('population');
+  let t='If body composition were a bank account: ';
+  t+=allAbove?'you have excellent investments (all segments above 100% of ideal muscle mass), ':'your investment portfolio is building, ';
+  if(ecw>0&&ecw<=.385)t+='great liquidity (optimal cellular hydration at '+ecw.toFixed(3)+' ECW/TBW), ';
+  else if(ecw>0)t+='liquidity needs attention (ECW/TBW at '+ecw.toFixed(3)+'), ';
+  if(pbf>0&&sex==='Male'&&pbf<10)t+='but your cash reserves are running thin ('+pbf+'% body fat is below the athletic floor of 10%). ';
+  else if(pbf>0&&sex==='Female'&&pbf<15)t+='but your cash reserves are running thin ('+pbf+'%). ';
+  else if(pbf>0&&pbf<=18)t+='and healthy cash reserves ('+pbf+'%). ';
+  else if(pbf>18)t+='with excess reserves to redeploy ('+pbf+'%). ';
+  if(n(getF('visceral'))>0)t+='Visceral fat at Level '+getF('visceral')+' is '+(n(getF('visceral'))<=5?'excellent':'elevated')+'. ';
+  t+='The key priority: ';
+  if(pbf<10&&sex==='Male'&&pop==='adolescent'){const cal=bmr>0?Math.round(bmr*1.6).toLocaleString()+'-'+Math.round(bmr*1.9).toLocaleString()+'+':'2,400-3,000+';t+='ensure adequate fueling ('+cal+' cal/day) to support both performance and continued adolescent development. You\'re built for speed and endurance - now make sure the tank stays full.';}
+  else if(pop==='masters'||pop==='longevity')t+='preserve lean tissue through resistance training and adequate protein. Muscle is your best defense against time.';
+  else t+='maintain consistency in training and nutrition to keep building on this foundation.';
+  return t;
+}
+
+// ===== BUILD REPORT =====
+function buildReport() {
+  const d = {};
+  FIELDS.forEach(f => d[f] = getF(f));
+  const bf = bfCat(n(d.pbf), d.sex, d.population);
+  const fmtDate = d.testDate ? new Date(d.testDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+  
+  const segs = [
+    {name:'Right Arm',wt:n(d.seg_ra_wt),pct:n(d.seg_ra_pct)},
+    {name:'Left Arm',wt:n(d.seg_la_wt),pct:n(d.seg_la_pct)},
+    {name:'Trunk',wt:n(d.seg_tr_wt),pct:n(d.seg_tr_pct)},
+    {name:'Right Leg',wt:n(d.seg_rl_wt),pct:n(d.seg_rl_pct)},
+    {name:'Left Leg',wt:n(d.seg_ll_wt),pct:n(d.seg_ll_pct)},
+  ].filter(s=>s.wt>0);
+  
+  const stColors = {green:'var(--green)',yellow:'var(--yellow)',red:'var(--red)'};
+  const stBg = {green:'#E6F5ED',yellow:'#FFF8E1',red:'#FCE8E6'};
+  
+  let html = '<div class="report">';
+  
+  // Header
+  html += '<div class="report-header"><h2>Body Composition Analysis Report</h2><div class="sub">BUILD Sports Performance Lab &amp; PT</div>';
+  html += '<div class="meta"><span><strong>'+(d.name||'Athlete')+'</strong> | '+d.sex+', Age '+d.age+' | '+d.height+'</span>';
+  html += '<span>'+(d.sport?d.sport+' | ':'')+'Test Date: '+fmtDate+'</span></div></div>';
+  
+  // Metrics
+  html += '<div class="metrics">';
+  const mets = [['Weight (lbs)',d.weight],['Skeletal Muscle',d.smm],['Body Fat (lbs)',d.bfm],['Body Fat %',n(d.pbf)?d.pbf+'%':'--'],['BMR (kcal)',n(d.bmr)?Number(d.bmr).toLocaleString():'--']];
+  mets.forEach(([label,val],i) => {
+    html += '<div class="metric"><div class="val">'+(val||'--')+'</div><div class="label">'+label+'</div>';
+    if(i===3&&n(d.pbf)>0) html+='<div class="badge" style="background:'+stBg[bf.s]+';color:'+stColors[bf.s]+'">'+bf.l+'</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  
+  // Body Comp
+  html += '<div class="report-section"><h3>&#127959; Understanding Your Body Composition</h3>';
+  nComp().split('\n\n').forEach(p => html+='<p>'+p+'</p>');
+  html += '</div>';
+  
+  // Hydration
+  if(n(d.ecwtbw)>0) {
+    html += '<div class="report-section"><h3>&#128167; Water Balance: The ECW/TBW Ratio</h3>';
+    nHydration().split('\n\n').forEach(p => html+='<p>'+p+'</p>');
+    html += '</div>';
+  }
+  
+  // BMR
+  if(n(d.bmr)>0) {
+    html += '<div class="report-section"><h3>&#128293; Basal Metabolic Rate: Your Engine\'s Idle Speed</h3>';
+    nBMR().split('\n\n').forEach(p => html+='<p>'+p+'</p>');
+    html += '</div>';
+  }
+  
+  // Segmental
+  if(segs.length>0) {
+    html += '<div class="report-section"><h3>&#128170; Segmental Analysis: Balance &amp; Symmetry</h3>';
+    html += '<table class="seg-table"><thead><tr><th>Segment</th><th>Mass</th><th>% of Ideal</th><th>Development</th><th>Assessment</th></tr></thead><tbody>';
+    segs.forEach(s => {
+      html += '<tr><td style="font-weight:600">'+s.name+'</td><td>'+s.wt+' lbs</td><td style="font-weight:700">'+s.pct+'%</td>';
+      html += '<td><div class="seg-bar"><div class="seg-bar-fill" style="background:'+segColor(s.pct)+';width:'+Math.min(s.pct,130)/1.3+'%"></div></div></td>';
+      html += '<td style="font-size:10px;font-weight:600;color:'+segColor(s.pct)+'">'+segRating(s.pct)+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<p>'+nSeg()+'</p></div>';
+  }
+  
+  // Notes
+  if(d.notes) {
+    html += '<div class="report-section"><h3>&#128221; Clinical Notes</h3><p>'+d.notes+'</p></div>';
+  }
+  
+  // Bottom Line
+  html += '<div class="report-section"><div class="bottom-line"><h4>&#128176; The Bottom Line</h4><p>'+nBottom()+'</p></div></div>';
+  
+  // Footer
+  html += '<div class="report-footer"><strong>BUILD Sports Performance Lab &amp; Physical Therapy</strong><br>165 McCaslin Blvd, Suite B, Louisville, CO 80027 | buildyou.co<br>Assessor: '+(d.assessor||'BUILD Staff')+'</div>';
+  
+  html += '</div>';
+  html += '<button class="print-btn" onclick="window.print()">&#128424; Print / Save PDF</button>';
+  
+  $('reportView').innerHTML = html;
+}
+
+// Init
+setF('testDate', new Date().toISOString().split('T')[0]);
+</script>
+</body>
+</html>
